@@ -1,0 +1,448 @@
+---
+title: "HORROR MOVIE DASHBOARD"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: row
+    vertical_layout: fill
+    theme:
+      bootswatch: simplex
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(DT)
+library(shiny)
+library(flexdashboard)
+library(tidyverse)
+library(ggimage)
+library(sysfonts)
+library(showtext)
+library(shinydashboard)
+library(shinythemes)
+library(ggplot2)
+library(here)
+library(plotly)
+library(rsconnect)
+```
+
+```{r, global, include=FALSE}
+horror_movies <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-11-01/horror_movies.csv')
+base_url <- 'https://www.themoviedb.org/t/p/w1280'
+save(horror_movies, file = "horror.rda")
+load("horror.rda")
+horror <- as.data.frame(horror_movies)
+
+horror <- horror %>%
+  mutate(budget = budget/1000000,
+         revenue = revenue/1000000,
+         profit = revenue - budget,
+         release_date = as.Date(release_date),
+         release_year = as.numeric(format(release_date, '%Y')),
+         release_month = as.numeric(format(release_date, '%m')),
+         poster_url = paste0(base_url,poster_path))
+         
+
+cols <- c("id", "title", "original_language", "release_date", "release_year", "release_month", "poster_path", "vote_average", "budget", "revenue", "profit", "runtime", "genre_names", "collection_name", "poster_url")
+horrors <- select(horror, all_of(cols))
+
+```
+
+
+# About
+
+### 
+
+<center><b>Welcome to the Horror Movie Dashboard!</b></center>
+<br>
+The purpose of this dashboard is to explore the major highlights that come from horror movies over the past 70 years and potentially uncover trends in popularity and profits. 
+The intended audience for this dashboard are for those who simply enjoy horror movies year-round and are interested in understanding how movies have evolved over time. 
+
+Data is sourced from The Movie Database (https://www.themoviedb.org) and you can learn more about the data under "The Data" tab and in "Overview".
+
+<center>Thanks for your visit and I hope you enjoy!</center>
+
+<center>![](https://ih1.redbubble.net/image.4240917872.1225/flat,750x,075,f-pad,750x1000,f8f8f8.jpg){height="700"}</center>
+
+### Data Dictionary
+
+| **Variable**          | **Type** | **Definition**             | **Example**                     |
+|:---------------|:--------------:|:------------------|:---------------------|
+| **id**                |   int    | unique movie id            | 4488                            |
+| **title**             |   char   | movie title                | Friday the 13th                 |
+| **original_language** |   char   | movie language             | en                              |
+| **release_date**      |   date   | release date               | 1980-05-09                      |
+| **poster_path**       |   char   | image url        | /HzrPn1gEHWixfMOvOehOTlHROo.jpg |
+| **vote_average**      |   num    | average rating             | 6.4                             |
+| **budget**            |   int    | movie budget (mil)           | 82              
+  |
+| **revenue**           |   int    | movie revenue (mil)     | 200                   
+  |
+| **profit**           |   int    | movie profit              | 2.92    
+ |
+| **runtime**           |   int    | movie runtime (min)        | 95                              |
+| **genre_names**       |   char   | list of genre tags         | Horror, Thriller                |
+| **collection_name**   |   char   | collection name (nullable) | Friday the 13th Collection      |
+
+
+# Data Source {.sidebar}
+
+##### The Movie Database (1950-2022).
+
+# Overview {data-navmenu="The Data"}
+
+Column {data-width=650, .tabset}
+-----------------------------------------------------------------------
+
+##### <b>Description:</b> 
+The data being used for this dashboard is extracted from 2022 TidyTuesday's data repository on GitHub and is sourced from The Movie Database, which contains information about all movies. However, for the purposes of this dashboard, we will only be reviewing horror movie data from 1950 to 2022. 
+
+### Explore the Horror
+
+```{r}
+DT::renderDataTable({
+  DT::datatable(horrors,
+                caption = htmltools::tags$caption(
+                  style = 'caption-side: top; text-align: Left;'),
+                options = list(autoWidth = TRUE,
+                               pageLength = 50,
+                               scroller = TRUE,
+                               scrollY = '450px'))
+})
+```
+
+
+# Top Movies {data-navmenu="The Data"}
+
+Column {data-width=500, .tabset}
+-----------------------------------------------------------------------
+
+### Budget
+
+<b>The top-5 horror movie budgets are:</b>
+<br>
+1. World War Z (2013)
+<br>
+2. Messengers (2004)
+<br>
+3. Van Helsing (2004)
+<br>
+4. The Wolfman (2010)
+<br>
+5. The Meg (2018)
+<br>
+
+```{r}
+top_movies <- horrors %>%
+  arrange(-budget) %>%
+  select(title, release_year, revenue, budget, poster_url) %>%
+  head(15)
+
+
+budget <- ggplot(top_movies, 
+       mapping=aes(y=reorder(title,budget), x=budget))+
+  geom_col(fill = '#A70000', width=0.6)+
+  geom_text(mapping=aes(label=round(budget,0), x=budget+20), 
+            color="white", size=4)+
+  scale_x_continuous(limits=c(0,300), expand=c(0,0))+
+  labs(x="Budget in Millions", y="Movie Title",
+       title="Highest Filming Budget for Horror") +
+ theme(panel.background = element_rect(fill="black"),
+        axis.text = element_text(color="white", size=8),
+        axis.ticks = element_blank(),
+        plot.background = element_rect(fill="black", color="black"),
+        plot.title = element_text(color="white", size=12),
+        text = element_text(color="white"),
+        panel.grid = element_blank(),
+        plot.margin = margin(t=20, b=20, l=20, r=20),
+        panel.grid.major.x= element_line(color="#2C2C2C", size=0.2)) +
+  facet_grid() 
+
+ggsave(here("figs","budgets.png"), plot=budget, width=7, height=7, units="in")
+```
+
+
+<center>![](./figs/budgets.png){width="40%"}</center>
+
+### Revenue
+
+<b>The top-5 horror movie revenue are:</b>
+<br>
+1. It (2017)
+<br>
+2. World War Z (2013)
+<br>
+3. The Meg (2018)
+<br>
+4. It: Chapter Two (2019)
+<br>
+5. Jaws (1975)
+<br>
+
+```{r}
+top_movies <- horrors %>%
+  arrange(-revenue) %>%
+  select(title, release_year, revenue, budget, poster_url) %>%
+  head(15)
+
+revenue <- ggplot(top_movies, 
+       mapping=aes(y=reorder(title,revenue), x=revenue))+
+  geom_col(fill = '#A70000', width=0.6)+
+  geom_text(mapping=aes(label=round(revenue,0), x=revenue+20), 
+            color="white", size=4)+
+  scale_x_continuous(limits=c(0,750), expand=c(0,0))+
+  labs(x="Revenue in Millions", y="Movie Title",
+       title="Hightest Box Office Revenue for Horror") +
+ theme(panel.background = element_rect(fill="black"),
+        axis.text = element_text(color="white", size=8),
+        axis.ticks = element_blank(),
+        plot.background = element_rect(fill="black", color="black"),
+        plot.title = element_text(color="white", size=12),
+        text = element_text(color="white"),
+        panel.grid = element_blank(),
+        plot.margin = margin(t=20, b=20, l=20, r=20),
+        panel.grid.major.x= element_line(color="#2C2C2C", size=0.2)) +
+  facet_grid() 
+
+ggsave(here("figs","revenue.png"), plot=revenue, width=7, height=7, units="in")
+
+```
+
+<center>![](./figs/revenue.png){width="40%"}</center>
+
+# Visuals & Releases {data-navmenu="The Data"}
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Search for a Movie Poster (2012-2022)
+
+```{r}
+movies <- subset(horrors, release_year %in% c("2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022"))
+
+poster <- function(url) {
+  sprintf('<img src="%s" height="150px"/>', url)
+}
+
+movies$poster <- lapply(movies$poster_url, poster)
+
+datatable(
+  movies[, c("title", "release_year", "poster")],
+  options = list(
+    columnDefs = list(
+      list(
+        targets = 2,
+        orderable = TRUE,  
+        searchable = TRUE))),
+  escape = FALSE  
+)
+```
+
+
+### Trend of Horror Movie Releases
+
+```{r}
+monthly <- horrors %>%
+  group_by(release_year, release_month) %>%
+  summarise(count=n()) %>%
+  filter(release_year>=1950 & release_year<=2022)
+
+ui <- fluidPage(
+  titlePanel("Horror Movies Released Each Month & Year"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("year", "Select a Year:",
+                  choices = unique(monthly$release_year),
+                  selected = 2022)
+    ),
+    mainPanel(
+      plotlyOutput("plot")
+    )
+  )
+)
+
+server <- function(input, output) {
+  output$plot <- renderPlotly({
+    yearly <- monthly %>%
+      filter(release_year == input$year)
+    
+total_movies <- sum(yearly$count)
+
+    date_counts <- ggplot(data = yearly, aes(x = release_month, y = count)) +
+      geom_line(color = "#A70000") +  
+      geom_point(color = "#A70000") + 
+      scale_x_continuous(breaks = 1:12) +  
+      annotate("text", x = mean(range(yearly$release_month)), 
+               y = max(yearly$count),
+               label = paste("Total Movies:", total_movies), 
+               hjust = 0.5, vjust = 1, size = 3, color="white") +  
+      labs(
+        x = "Month",
+        y = "Number of Movies",
+        title = paste("Horror Movies by Release Month (", input$year, ")"),
+        caption = "Data from The Movie Database"
+      ) +
+     theme(panel.background = element_rect(fill="black"),
+        axis.text = element_text(color="white", size=8),
+        axis.ticks = element_blank(),
+        plot.background = element_rect(fill="black", color="black"),
+        plot.title = element_text(color="#DFDFDF", size=12),
+        text = element_text(color="white"),
+        panel.grid = element_blank(),
+        plot.margin = margin(t=20, b=20, l=20, r=20),
+        panel.grid.major.x= element_line(color="#2C2C2C", size=0.2)) +
+  facet_grid() 
+
+    ggplotly(date_counts)
+  })
+}
+
+shinyApp(ui, server)
+
+```
+
+
+# Analysis
+
+Column {data-width=650, .tabset}
+-----------------------------------------------------------------------
+
+##### <b>Data on the paranormal movie collections: The Exorcist, Evil Dead, The Conjuring, Paranormal Activity</b>
+
+```{r}
+paranormal <- c("The Exorcist Collection",
+             "Evil Dead Collection",
+             "The Conjuring Collection",
+             "Paranormal Activity Collection")
+
+paranormal <- horrors %>%
+  filter(collection_name %in% paranormal & budget>0 & revenue>0)|>
+  mutate(collection_name = gsub(" Collection","",collection_name))|>
+  select(title, collection_name, budget, revenue, vote_average)
+
+ui <- fluidPage(fluidRow(column(width = 10,
+      plotlyOutput("plot_id", width = "1000px", height = "80vh"))))
+
+
+server <- function(input, output) {
+  output$plot_id <- renderPlotly({
+      paranormal_plot <- ggplot(paranormal, aes(y = revenue, x = budget, text=title)) +
+      geom_point(aes(size = vote_average, color = collection_name)) +
+      scale_color_manual(values = c("red", "violet", "yellow", 'green')) +
+      labs(title = "Paranormal Collections: Revenue, Budget, & Score",
+        y = "Revenue in Millions",
+        x = "Budget in Millions",
+        color = "Franchise") +
+      theme(panel.background = element_rect(fill = "black"),
+        axis.text = element_text(color = "white", size = 8),
+        axis.ticks = element_blank(),
+        plot.background = element_rect(fill = "black", color = "black"),
+        plot.title = element_text(color = "white", size = 12),
+        legend.background = element_rect(fill = "black", color = "black"),
+        text = element_text(color = "white"),
+        panel.grid = element_blank(),
+        plot.margin = margin(t = 20, b = 20, l = 20, r = 20),
+        panel.grid.major.x = element_line(color = "#2C2C2C", size = 0.2),
+        legend.position="none") +
+      facet_grid() 
+
+ggplotly(paranormal_plot)
+    
+  })
+}
+
+shinyApp(ui, server)
+
+```
+
+##### <b>Data on the slasher movie collections: Halloween, Friday the 13th, Scream, A Nightmare on Elm Street</b>
+
+
+```{r}
+slashers<- c("Halloween Collection",
+             "Friday the 13th Collection",
+             "Scream Collection",
+             "A Nightmare on Elm Street Collection")
+
+slashers <- horrors %>%
+  filter(collection_name %in% slashers & budget>0 & revenue>0)|>
+  mutate(collection_name = gsub(" Collection","",collection_name))|>
+  select(title, collection_name, budget, revenue, vote_average)
+
+ui <- fluidPage(fluidRow(column(width = 10,
+      plotlyOutput("plot_id", width = "1000px", height = "80vh"))))
+
+
+server <- function(input, output) {
+  output$plot_id <- renderPlotly({
+    slashers_plot <- ggplot(slashers, aes(y = revenue, x = budget, text=title)) +
+      geom_point(aes(size = vote_average, color = collection_name)) +
+      scale_color_manual(values = c("red", "violet", "yellow", 'green')) +
+      labs(title = "Slasher Collections: Revenue, Budget, & Score",
+        y = "Revenue in Millions",
+        x = "Budget in Millions",
+        color = "Franchise") +
+      theme(
+        panel.background = element_rect(fill = "black"),
+        axis.text = element_text(color = "white", size = 8),
+        axis.ticks = element_blank(),
+        plot.background = element_rect(fill = "black", color = "black"),
+        plot.title = element_text(color = "white", size = 12),
+        legend.background = element_rect(fill = "black", color = "black"),
+        text = element_text(color = "white"),
+        panel.grid = element_blank(),
+        plot.margin = margin(t = 20, b = 20, l = 20, r = 20),
+        panel.grid.major.x = element_line(color = "#2C2C2C", size = 0.2),
+        legend.position="none") +
+      facet_grid() 
+
+ggplotly(slashers_plot)
+    
+  })
+}
+
+shinyApp(ui, server)
+```
+
+##### <b>Comparing Paranormal & Slashers</b>
+
+```{r}
+paranormal_mean <- paranormal %>%
+  group_by(collection_name) %>%
+  summarize(total_budget = sum(budget, na.rm = TRUE),
+            total_revenue = sum(revenue, na.rm = TRUE),
+            mean_score = mean(vote_average, na.rm = TRUE))
+
+slashers_mean <- slashers %>%
+  group_by(collection_name) %>%
+  summarize(total_budget = sum(budget, na.rm = TRUE),
+            total_revenue = sum(revenue, na.rm = TRUE),
+            mean_score = mean(vote_average, na.rm = TRUE))
+
+combined <- bind_rows(
+  mutate(paranormal_mean, ID = "paranormal"),
+  mutate(slashers_mean, ID = "slashers")) %>%
+  mutate(across(c(total_budget, total_revenue, mean_score), 
+                ~ round(., digits = 2))) %>%
+  select(collection_name, ID, total_budget, total_revenue, mean_score)
+
+DT::renderDataTable({
+  DT::datatable(combined,
+                caption = htmltools::tags$caption(
+                  style = 'caption-side: top; text-align: Left;'),
+                options = list(autoWidth = TRUE,
+                               pageLength = 50,
+                               scroller = TRUE,
+                               scrollY = '450px'))
+})
+```
+
+##### <b>Summary:</b> 
+Like most, some of my favorite types of horror movies are paranormal and slasher films and so I wanted to compare the top 4 of each respective type to determine which is overall better, at least when it comes to budget, revenue, and budget. The two graphs detailing the collections and the total number of movies with each collection shows detail on each movie's budget, revenue, and score. The table details the total sum of budget and revenue allocated to each collection, thus grouping movies, and their overall mean score across all movies. In sum, the winner is clear as paranormal movies have higher budgets, revenues, and scores. Particularly true for the Evil Dead and Conjuring franchise.
+
+# Presentation
+
+Column {data-width=650, .tabset}
+-----------------------------------------------------------------------
+
+<div style="padding:59.56% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/897356808?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" style="position:absolute;top:0;left:0;width:100%;height:100%;" title="dashboardpresentation"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
